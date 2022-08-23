@@ -504,23 +504,6 @@ set(FTB_SOURCES
     modplatform/legacy_ftb/PackHelpers.h
 )
 
-set(FLAME_SOURCES
-    # Flame
-    modplatform/flame/FlamePackIndex.cpp
-    modplatform/flame/FlamePackIndex.h
-    modplatform/flame/PackManifest.h
-    modplatform/flame/PackManifest.cpp
-    modplatform/flame/FileResolvingTask.h
-    modplatform/flame/FileResolvingTask.cpp
-)
-
-set(MODPACKSCH_SOURCES
-    modplatform/modpacksch/FTBPackInstallTask.h
-    modplatform/modpacksch/FTBPackInstallTask.cpp
-    modplatform/modpacksch/FTBPackManifest.h
-    modplatform/modpacksch/FTBPackManifest.cpp
-)
-
 set(TECHNIC_SOURCES
     modplatform/technic/SingleZipPackInstallTask.h
     modplatform/technic/SingleZipPackInstallTask.cpp
@@ -572,8 +555,7 @@ set(LOGIC_SOURCES
     ${META_SOURCES}
     ${ICONS_SOURCES}
     ${FTB_SOURCES}
-    ${FLAME_SOURCES}
-    ${MODPACKSCH_SOURCES}
+    ${FTBA_SOURCES}
     ${TECHNIC_SOURCES}
     ${ATLAUNCHER_SOURCES}
     ${MODRINTH_SOURCES}
@@ -733,26 +715,23 @@ SET(LAUNCHER_SOURCES
     ui/pages/modplatform/atlauncher/AtlPage.cpp
     ui/pages/modplatform/atlauncher/AtlPage.h
 
-    ui/pages/modplatform/ftb/FtbFilterModel.cpp
-    ui/pages/modplatform/ftb/FtbFilterModel.h
-    ui/pages/modplatform/ftb/FtbListModel.cpp
-    ui/pages/modplatform/ftb/FtbListModel.h
-    ui/pages/modplatform/ftb/FtbPage.cpp
-    ui/pages/modplatform/ftb/FtbPage.h
-
     ui/pages/modplatform/legacy_ftb/Page.cpp
     ui/pages/modplatform/legacy_ftb/Page.h
     ui/pages/modplatform/legacy_ftb/ListModel.h
     ui/pages/modplatform/legacy_ftb/ListModel.cpp
 
-    ui/pages/modplatform/flame/FlameModel.cpp
-    ui/pages/modplatform/flame/FlameModel.h
-    ui/pages/modplatform/flame/FlamePage.cpp
-    ui/pages/modplatform/flame/FlamePage.h
+    ui/pages/modplatform/import_ftb/PackInstallTask.cpp
+    ui/pages/modplatform/import_ftb/PackInstallTask.h
+    ui/pages/modplatform/import_ftb/Model.cpp
+    ui/pages/modplatform/import_ftb/Model.h
+    ui/pages/modplatform/import_ftb/FTBAPage.cpp
+    ui/pages/modplatform/import_ftb/FTBAPage.h
 
     ui/pages/modplatform/modrinth/ModrinthData.h
     ui/pages/modplatform/modrinth/ModrinthModel.cpp
     ui/pages/modplatform/modrinth/ModrinthModel.h
+    ui/pages/modplatform/modrinth/ModrinthDocument.cpp
+    ui/pages/modplatform/modrinth/ModrinthDocument.h
     ui/pages/modplatform/modrinth/ModrinthPage.cpp
     ui/pages/modplatform/modrinth/ModrinthPage.h
 
@@ -801,7 +780,8 @@ SET(LAUNCHER_SOURCES
     ui/dialogs/VersionSelectDialog.h
     ui/dialogs/SkinUploadDialog.cpp
     ui/dialogs/SkinUploadDialog.h
-
+    ui/dialogs/CreateShortcutDialog.cpp
+    ui/dialogs/CreateShortcutDialog.h
 
     # GUI - widgets
     ui/widgets/Common.cpp
@@ -876,10 +856,9 @@ qt5_wrap_ui(LAUNCHER_UI
     ui/pages/modplatform/atlauncher/AtlOptionalModDialog.ui
     ui/pages/modplatform/atlauncher/AtlPage.ui
     ui/pages/modplatform/VanillaPage.ui
-    ui/pages/modplatform/flame/FlamePage.ui
     ui/pages/modplatform/legacy_ftb/Page.ui
+    ui/pages/modplatform/import_ftb/FTBAPage.ui
     ui/pages/modplatform/ImportPage.ui
-    ui/pages/modplatform/ftb/FtbPage.ui
     ui/pages/modplatform/modrinth/ModrinthPage.ui
     ui/pages/modplatform/technic/TechnicPage.ui
     ui/widgets/InstanceCardWidget.ui
@@ -900,6 +879,7 @@ qt5_wrap_ui(LAUNCHER_UI
     ui/dialogs/AboutDialog.ui
     ui/dialogs/LoginDialog.ui
     ui/dialogs/EditAccountDialog.ui
+    ui/dialogs/CreateShortcutDialog.ui
 )
 
 qt5_add_resources(LAUNCHER_RESOURCES

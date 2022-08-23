@@ -21,6 +21,20 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     endif()
 endif()
 
+option(Launcher_RUN_CLANG_TIDY "Run clang-tidy with the compiler." OFF)
+if(Launcher_RUN_CLANG_TIDY)
+  find_program(CLANG_TIDY_COMMAND NAMES clang-tidy)
+  if(NOT CLANG_TIDY_COMMAND)
+    message(WARNING "CMake_RUN_CLANG_TIDY is ON but clang-tidy is not found!")
+    set(DO_CLANG_TIDY "" CACHE STRING "" FORCE)
+  else()
+    set(CLANG_TIDY_CHECKS "-modernize-use-trailing-return-type,-readability-magic-numbers,-modernize-avoid-c-arrays")
+    set(DO_CLANG_TIDY "${CLANG_TIDY_COMMAND};-checks=${CLANG_TIDY_CHECKS};-header-filter='${CMAKE_SOURCE_DIR}/src/*'")
+  endif()
+  # TODO: make this per-target, differentiate between libraries and main codebase
+  set(CMAKE_CXX_CLANG_TIDY ${DO_CLANG_TIDY})
+endif()
+
 
 ##################################### Set CMake options #####################################
 set(CMAKE_AUTOMOC ON)
@@ -58,8 +72,8 @@ set(Launcher_NEWS_RSS_URL "https://multimc.org/rss.xml" CACHE STRING "URL to fet
 
 ######## Set version numbers ########
 set(Launcher_VERSION_MAJOR    0)
-set(Launcher_VERSION_MINOR    6)
-set(Launcher_VERSION_HOTFIX   16)
+set(Launcher_VERSION_MINOR    7)
+set(Launcher_VERSION_HOTFIX   0)
 
 # Build number
 set(Launcher_VERSION_BUILD -1 CACHE STRING "Build number. -1 for no build number.")

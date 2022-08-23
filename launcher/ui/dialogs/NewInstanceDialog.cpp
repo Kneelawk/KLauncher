@@ -35,9 +35,8 @@
 #include "ui/widgets/PageContainer.h"
 #include "ui/pages/modplatform/VanillaPage.h"
 #include "ui/pages/modplatform/atlauncher/AtlPage.h"
-#include "ui/pages/modplatform/ftb/FtbPage.h"
 #include "ui/pages/modplatform/legacy_ftb/Page.h"
-#include "ui/pages/modplatform/flame/FlamePage.h"
+#include "ui/pages/modplatform/import_ftb/FTBAPage.h"
 #include "ui/pages/modplatform/ImportPage.h"
 #include "ui/pages/modplatform/modrinth/ModrinthPage.h"
 #include "ui/pages/modplatform/technic/TechnicPage.h"
@@ -104,6 +103,8 @@ NewInstanceDialog::NewInstanceDialog(const QString & initialGroup, const QString
         importPage->setUrl(url);
     }
 
+    connect(APPLICATION, &QApplication::focusChanged, this, &NewInstanceDialog::onFocusChanged);
+
     updateDialogState();
 
     restoreGeometry(QByteArray::fromBase64(APPLICATION->settings()->get("NewInstanceGeometry").toByteArray()));
@@ -125,17 +126,15 @@ void NewInstanceDialog::accept()
 QList<BasePage *> NewInstanceDialog::getPages()
 {
     importPage = new ImportPage(this);
-    flamePage = new FlamePage(this);
     auto technicPage = new TechnicPage(this);
     return
     {
         new VanillaPage(this),
         importPage,
-        new AtlPage(this),
-        flamePage,
-        new FtbPage(this),
-        new LegacyFTB::Page(this),
         new ModrinthPage(this),
+        new AtlPage(this),
+        new ImportFTB::FTBAPage(this),
+        new LegacyFTB::Page(this),
         technicPage
     };
 }
@@ -153,7 +152,14 @@ NewInstanceDialog::~NewInstanceDialog()
 void NewInstanceDialog::setSuggestedPack(const QString& name, InstanceTask* task)
 {
     creationTask.reset(task);
+
+    defaultInstName = name;
     ui->instNameTextBox->setPlaceholderText(name);
+
+    if (!instNameChanged)
+    {
+        ui->instNameTextBox->setText(name);
+    }
 
     if(!task)
     {
@@ -241,9 +247,27 @@ void NewInstanceDialog::on_iconButton_clicked()
     }
 }
 
+void NewInstanceDialog::on_resetNameButton_clicked()
+{
+    ui->instNameTextBox->setText(defaultInstName);
+    instNameChanged = false;
+}
+
 void NewInstanceDialog::on_instNameTextBox_textChanged(const QString &arg1)
 {
     updateDialogState();
+}
+
+void NewInstanceDialog::on_instNameTextBox_textEdited(const QString &text)
+{
+    instNameChanged = true;
+}
+
+void NewInstanceDialog::onFocusChanged(QWidget *, QWidget *newWidget)
+{
+    if (newWidget == ui->instNameTextBox && !instNameChanged) {
+        QTimer::singleShot(0, ui->instNameTextBox, &QLineEdit::selectAll);
+    }
 }
 
 void NewInstanceDialog::importIconNow()

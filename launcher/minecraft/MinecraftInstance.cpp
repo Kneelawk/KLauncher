@@ -444,9 +444,8 @@ QStringList MinecraftInstance::processMinecraftArgs(
         }
     }
 
-    // blatant self-promotion.
-    token_mapping["profile_name"] = token_mapping["version_name"] = "MultiMC5";
-
+    token_mapping["profile_name"] = name();
+    token_mapping["version_name"] = profile->getMinecraftVersion();
     token_mapping["version_type"] = profile->getMinecraftVersionType();
 
     QString absRootDir = QDir(gameRoot()).absolutePath();
@@ -624,15 +623,15 @@ QStringList MinecraftInstance::verboseDescription(AuthSessionPtr session, Minecr
             {
                 if(mod.type() == Mod::MOD_FOLDER)
                 {
-                    out << u8"  [📁] " + mod.filename().completeBaseName() + " (folder)";
+                    out << u8"  [📁] " + mod.filename().fileName() + " (folder)";
                     continue;
                 }
 
                 if(mod.enabled()) {
-                    out << u8"  [✔️] " + mod.filename().completeBaseName();
+                    out << u8"  [✔️] " + mod.filename().fileName();
                 }
                 else {
-                    out << u8"  [❌] " + mod.filename().completeBaseName() + " (disabled)";
+                    out << u8"  [❌] " + mod.filename().fileName() + " (disabled)";
                 }
 
             }

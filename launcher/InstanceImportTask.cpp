@@ -26,8 +26,6 @@
 // FIXME: this does not belong here, it's Minecraft/Flame specific
 #include "minecraft/MinecraftInstance.h"
 #include "minecraft/PackProfile.h"
-#include "modplatform/flame/FileResolvingTask.h"
-#include "modplatform/flame/PackManifest.h"
 #include "Json.h"
 #include <quazipdir.h>
 #include "modplatform/modrinth/ModrinthPackManifest.h"
@@ -105,7 +103,6 @@ void InstanceImportTask::processZipPack()
     QStringList blacklist = {"instance.cfg", "manifest.json"};
     QString mmcFound = MMCZip::findFolderOfFileInZip(m_packZip.get(), "instance.cfg");
     bool technicFound = QuaZipDir(m_packZip.get()).exists("/bin/modpack.jar") || QuaZipDir(m_packZip.get()).exists("/bin/version.json");
-    QString flameFound = MMCZip::findFolderOfFileInZip(m_packZip.get(), "manifest.json");
     QString modrinthFound = MMCZip::findFolderOfFileInZip(m_packZip.get(), "modrinth.index.json");
     QString root;
     if(!mmcFound.isNull())
@@ -122,13 +119,6 @@ void InstanceImportTask::processZipPack()
         extractDir.mkpath(".minecraft");
         extractDir.cd(".minecraft");
         m_modpackType = ModpackType::Technic;
-    }
-    else if(!flameFound.isNull())
-    {
-        // process as Flame pack
-        qDebug() << "Flame:" << flameFound;
-        root = flameFound;
-        m_modpackType = ModpackType::Flame;
     }
     else if(!modrinthFound.isNull())
     {
@@ -199,9 +189,6 @@ void InstanceImportTask::extractFinished()
         case ModpackType::Technic:
             processTechnic();
             return;
-        case ModpackType::Flame:
-            processFlame();
-            return;
         case ModpackType::Modrinth:
             processModrinth();
             return;
@@ -215,215 +202,6 @@ void InstanceImportTask::extractAborted()
 {
     emitFailed(tr("Instance import has been aborted."));
     return;
-}
-
-void InstanceImportTask::processFlame()
-{
-    const static QMap<QString,QString> forgemap = {
-        {"1.2.5", "3.4.9.171"},
-        {"1.4.2", "6.0.1.355"},
-        {"1.4.7", "6.6.2.534"},
-        {"1.5.2", "7.8.1.737"}
-    };
-    Flame::Manifest pack;
-    try
-    {
-        QString configPath = FS::PathCombine(m_stagingPath, "manifest.json");
-        Flame::loadManifest(pack, configPath);
-        QFile::remove(configPath);
-    }
-    catch (const JSONValidationError &e)
-    {
-        emitFailed(tr("Could not understand pack manifest:\n") + e.cause());
-        return;
-    }
-    if(!pack.overrides.isEmpty())
-    {
-        QString overridePath = FS::PathCombine(m_stagingPath, pack.overrides);
-        if (QFile::exists(overridePath))
-        {
-            QString mcPath = FS::PathCombine(m_stagingPath, "minecraft");
-            if (!QFile::rename(overridePath, mcPath))
-            {
-                emitFailed(tr("Could not rename the overrides folder:\n") + pack.overrides);
-                return;
-            }
-        }
-        else
-        {
-            logWarning(tr("The specified overrides folder (%1) is missing. Maybe the modpack was already used before?").arg(pack.overrides));
-        }
-    }
-
-    QString forgeVersion;
-    QString fabricVersion;
-    for(auto &loader: pack.minecraft.modLoaders)
-    {
-        auto id = loader.id;
-        if(id.startsWith("forge-"))
-        {
-            id.remove("forge-");
-            forgeVersion = id;
-            continue;
-        }
-        if(id.startsWith("fabric-"))
-        {
-            id.remove("fabric-");
-            fabricVersion = id;
-            continue;
-        }
-        logWarning(tr("Unknown mod loader in manifest: %1").arg(id));
-    }
-
-    QString configPath = FS::PathCombine(m_stagingPath, "instance.cfg");
-    auto instanceSettings = std::make_shared<INISettingsObject>(configPath);
-    instanceSettings->registerSetting("InstanceType", "Legacy");
-    instanceSettings->set("InstanceType", "OneSix");
-    MinecraftInstance instance(m_globalSettings, instanceSettings, m_stagingPath);
-    auto mcVersion = pack.minecraft.version;
-    // Hack to correct some 'special sauce'...
-    if(mcVersion.endsWith('.'))
-    {
-        mcVersion.remove(QRegExp("[.]+$"));
-        logWarning(tr("Mysterious trailing dots removed from Minecraft version while importing pack."));
-    }
-    auto components = instance.getPackProfile();
-    components->buildingFromScratch();
-    components->setComponentVersion("net.minecraft", mcVersion, true);
-    if(!forgeVersion.isEmpty())
-    {
-        // FIXME: dirty, nasty, hack. Proper solution requires dependency resolution and knowledge of the metadata.
-        if(forgeVersion == "recommended")
-        {
-            if(forgemap.contains(mcVersion))
-            {
-                forgeVersion = forgemap[mcVersion];
-            }
-            else
-            {
-                logWarning(tr("Could not map recommended forge version for Minecraft %1").arg(mcVersion));
-            }
-        }
-        components->setComponentVersion("net.minecraftforge", forgeVersion);
-    }
-    if(!fabricVersion.isEmpty())
-    {
-        components->setComponentVersion("net.fabricmc.fabric-loader", fabricVersion);
-    }
-    if (m_instIcon != "default")
-    {
-        instance.setIconKey(m_instIcon);
-    }
-    else
-    {
-        if(pack.name.contains("Direwolf20"))
-        {
-            instance.setIconKey("steve");
-        }
-        else if(pack.name.contains("FTB") || pack.name.contains("Feed The Beast"))
-        {
-            instance.setIconKey("ftb_logo");
-        }
-        else
-        {
-            // default to something other than the MultiMC default to distinguish these
-            instance.setIconKey("flame");
-        }
-    }
-    QString jarmodsPath = FS::PathCombine(m_stagingPath, "minecraft", "jarmods");
-    QFileInfo jarmodsInfo(jarmodsPath);
-    if(jarmodsInfo.isDir())
-    {
-        // install all the jar mods
-        qDebug() << "Found jarmods:";
-        QDir jarmodsDir(jarmodsPath);
-        QStringList jarMods;
-        for (auto info: jarmodsDir.entryInfoList(QDir::NoDotAndDotDot | QDir::Files))
-        {
-            qDebug() << info.fileName();
-            jarMods.push_back(info.absoluteFilePath());
-        }
-        auto profile = instance.getPackProfile();
-        profile->installJarMods(jarMods);
-        // nuke the original files
-        FS::deletePath(jarmodsPath);
-    }
-    instance.setName(m_instName);
-    m_modIdResolver = new Flame::FileResolvingTask(APPLICATION->network(), pack);
-    connect(m_modIdResolver.get(), &Flame::FileResolvingTask::succeeded, [&]()
-    {
-        auto results = m_modIdResolver->getResults();
-        m_filesNetJob = new NetJob(tr("Mod download"), APPLICATION->network());
-        for(auto result: results.files)
-        {
-            QString filename = result.fileName;
-            if(!result.required)
-            {
-                filename += ".disabled";
-            }
-
-            auto relpath = FS::PathCombine("minecraft", result.targetFolder, filename);
-            auto path = FS::PathCombine(m_stagingPath , relpath);
-
-            switch(result.type)
-            {
-                case Flame::File::Type::Folder:
-                {
-                    logWarning(tr("This 'Folder' may need extracting: %1").arg(relpath));
-                    // fall-through intentional, we treat these as plain old mods and dump them wherever.
-                }
-                case Flame::File::Type::SingleFile:
-                case Flame::File::Type::Mod:
-                {
-                    qDebug() << "Will download" << result.url << "to" << path;
-                    auto dl = Net::Download::makeFile(result.url, path);
-                    m_filesNetJob->addNetAction(dl);
-                    break;
-                }
-                case Flame::File::Type::Modpack:
-                    logWarning(tr("Nesting modpacks in modpacks is not implemented, nothing was downloaded: %1").arg(relpath));
-                    break;
-                case Flame::File::Type::Cmod2:
-                case Flame::File::Type::Ctoc:
-                case Flame::File::Type::Unknown:
-                    logWarning(tr("Unrecognized/unhandled PackageType for: %1").arg(relpath));
-                    break;
-            }
-        }
-        m_modIdResolver.reset();
-        connect(m_filesNetJob.get(), &NetJob::succeeded, this, [&]()
-        {
-            m_filesNetJob.reset();
-            emitSucceeded();
-        }
-        );
-        connect(m_filesNetJob.get(), &NetJob::failed, [&](QString reason)
-        {
-            m_filesNetJob.reset();
-            emitFailed(reason);
-        });
-        connect(m_filesNetJob.get(), &NetJob::progress, [&](qint64 current, qint64 total)
-        {
-            setProgress(current, total);
-        });
-        setStatus(tr("Downloading mods..."));
-        m_filesNetJob->start();
-    }
-    );
-    connect(m_modIdResolver.get(), &Flame::FileResolvingTask::failed, [&](QString reason)
-    {
-        m_modIdResolver.reset();
-        emitFailed(tr("Unable to resolve mod IDs:\n") + reason);
-    });
-    connect(m_modIdResolver.get(), &Flame::FileResolvingTask::progress, [&](qint64 current, qint64 total)
-    {
-        setProgress(current, total);
-    });
-    connect(m_modIdResolver.get(), &Flame::FileResolvingTask::status, [&](QString status)
-    {
-        setStatus(status);
-    });
-    m_modIdResolver->start();
 }
 
 void InstanceImportTask::processTechnic()
@@ -470,6 +248,47 @@ void InstanceImportTask::processMultiMC()
         }
     }
     emitSucceeded();
+}
+
+namespace {
+bool mergeOverrides(const QString &fromDir, const QString &toDir) {
+    QDir dir(fromDir);
+    if(!dir.exists()) {
+        return true;
+    }
+    if(!FS::ensureFolderPathExists(toDir)) {
+        return false;
+    }
+    const int absSourcePathLength = dir.absoluteFilePath(fromDir).length();
+
+    QDirIterator it(fromDir, QDirIterator::Subdirectories);
+    while (it.hasNext()){
+        it.next();
+        const auto fileInfo = it.fileInfo();
+        auto fileName = fileInfo.fileName();
+        if(fileName == "." || fileName == "..") {
+            continue;
+        }
+        const QString subPathStructure = fileInfo.absoluteFilePath().mid(absSourcePathLength);
+        const QString constructedAbsolutePath = toDir + subPathStructure;
+
+        if(fileInfo.isDir()){
+            //Create directory in target folder
+            dir.mkpath(constructedAbsolutePath);
+        } else if(fileInfo.isFile()) {
+            QFileInfo targetFileInfo(constructedAbsolutePath);
+            if(targetFileInfo.exists()) {
+                continue;
+            }
+            // move
+            QFile::rename(fileInfo.absoluteFilePath(), constructedAbsolutePath);
+        }
+    }
+
+    dir.removeRecursively();
+    return true;
+}
+
 }
 
 void InstanceImportTask::processModrinth() {
@@ -530,7 +349,7 @@ void InstanceImportTask::processModrinth() {
                 file.hash = QByteArray::fromHex(hash.toLatin1());
                 file.hashAlgorithm = hashAlgorithm;
                 // Do not use requireUrl, which uses StrictMode, instead use QUrl's default TolerantMode (as Modrinth seems to incorrectly handle spaces)
-                file.download = Json::requireString(Json::ensureArray(obj, "downloads").first(), "Download URL for " + file.path);
+                file.download = Json::requireValueString(Json::ensureArray(obj, "downloads").first(), "Download URL for " + file.path);
                 if (!file.download.isValid())
                 {
                     throw JSONValidationError("Download URL for " + file.path + " is not a correctly formatted URL");
@@ -546,25 +365,25 @@ void InstanceImportTask::processModrinth() {
                 {
                     if (!minecraftVersion.isEmpty())
                         throw JSONValidationError("Duplicate Minecraft version");
-                    minecraftVersion = Json::requireString(*it, "Minecraft version");
+                    minecraftVersion = Json::requireValueString(*it, "Minecraft version");
                 }
                 else if (name == "fabric-loader")
                 {
                     if (!fabricVersion.isEmpty())
                         throw JSONValidationError("Duplicate Fabric Loader version");
-                    fabricVersion = Json::requireString(*it, "Fabric Loader version");
+                    fabricVersion = Json::requireValueString(*it, "Fabric Loader version");
                 }
                 else if (name == "quilt-loader")
                 {
                     if (!quiltVersion.isEmpty())
                         throw JSONValidationError("Duplicate Quilt Loader version");
-                    quiltVersion = Json::requireString(*it, "Quilt Loader version");
+                    quiltVersion = Json::requireValueString(*it, "Quilt Loader version");
                 }
                 else if (name == "forge")
                 {
                     if (!forgeVersion.isEmpty())
                         throw JSONValidationError("Duplicate Forge version");
-                    forgeVersion = Json::requireString(*it, "Forge version");
+                    forgeVersion = Json::requireValueString(*it, "Forge version");
                 }
                 else
                 {
@@ -583,14 +402,28 @@ void InstanceImportTask::processModrinth() {
         emitFailed(tr("Could not understand pack index:\n") + e.cause());
         return;
     }
-    QString overridePath = FS::PathCombine(m_stagingPath, "overrides");
-    if (QFile::exists(overridePath)) {
+    QString clientOverridePath = FS::PathCombine(m_stagingPath, "client-overrides");
+    if (QFile::exists(clientOverridePath)) {
         QString mcPath = FS::PathCombine(m_stagingPath, ".minecraft");
-        if (!QFile::rename(overridePath, mcPath)) {
+        if (!QFile::rename(clientOverridePath, mcPath)) {
             emitFailed(tr("Could not rename the overrides folder:\n") + "overrides");
             return;
         }
     }
+
+    // TODO: only extract things we actually want instead of everything only to just delete it afterwards ...
+    if(!mergeOverrides(FS::PathCombine(m_stagingPath, "client-overrides"), FS::PathCombine(m_stagingPath, ".minecraft"))) {
+        emitFailed(tr("Could not merge the overrides folder:\n") + "client-overrides");
+        return;
+    }
+
+    if(!mergeOverrides(FS::PathCombine(m_stagingPath, "overrides"), FS::PathCombine(m_stagingPath, ".minecraft"))) {
+        emitFailed(tr("Could not merge the overrides folder:\n") + "overrides");
+        return;
+    }
+
+    FS::deletePath(FS::PathCombine(m_stagingPath, "server-overrides"));
+
 
     QString configPath = FS::PathCombine(m_stagingPath, "instance.cfg");
     auto instanceSettings = std::make_shared<INISettingsObject>(configPath);

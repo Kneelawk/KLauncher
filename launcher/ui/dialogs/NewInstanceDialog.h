@@ -29,7 +29,6 @@ class NewInstanceDialog;
 class PageContainer;
 class QDialogButtonBox;
 class ImportPage;
-class FlamePage;
 
 class NewInstanceDialog : public QDialog, public BasePageProvider
 {
@@ -57,10 +56,13 @@ public:
 public slots:
     void accept() override;
     void reject() override;
+    void onFocusChanged(QWidget *, QWidget *newWidget);
 
 private slots:
     void on_iconButton_clicked();
+    void on_resetNameButton_clicked();
     void on_instNameTextBox_textChanged(const QString &arg1);
+    void on_instNameTextBox_textEdited(const QString &text);
 
 private:
     Ui::NewInstanceDialog *ui = nullptr;
@@ -69,7 +71,6 @@ private:
 
     QString InstIconKey;
     ImportPage *importPage = nullptr;
-    FlamePage *flamePage = nullptr;
     std::unique_ptr<InstanceTask> creationTask;
 
     bool importIcon = false;
@@ -77,4 +78,7 @@ private:
     QString importIconName;
 
     void importIconNow();
+
+    QString defaultInstName;
+    bool instNameChanged = false;
 };
