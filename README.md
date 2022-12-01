@@ -23,9 +23,9 @@ Unless required by applicable law or agreed to in writing, software distributed 
 ## Forking/Redistributing/Custom builds policy
 KLauncher is a fork of MultiMC and is open-source under the Apache license, just like MultiMC.
 
-Like with MultiMC, the license gives you access to the source KLauncher is build from, but:
-- Not the name, logo and other branding.
-- Not the API tokens required to talk to services the launcher depends on.
+Like with MultiMC, the license gives you access to the source KLauncher is build from, but not:
+- The name, logo and other branding.
+- The API tokens required to talk to services the launcher depends on.
 
 Because of the nature of the agreements required to interact with the Microsoft identity platform, it's impossible for me to allow people to build the code as 'KLauncher'. The source code has been debranded and now builds as `DevLauncher` by default.
 

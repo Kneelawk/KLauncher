@@ -785,11 +785,19 @@ QString MinecraftInstance::getStatusbarDescription()
     if(m_settings->get("ShowGameTime").toBool())
     {
         if (lastTimePlayed() > 0) {
-            description.append(tr(", last played for %1").arg(Time::prettifyDuration(lastTimePlayed())));
+            if (APPLICATION->settings()->get("ShowGameTimeHours").toBool()) {
+                description.append(tr(", last played for %1 hours").arg(Time::prettifyDurationHours(lastTimePlayed())));
+            } else {
+                description.append(tr(", last played for %1").arg(Time::prettifyDuration(lastTimePlayed())));
+            }
         }
 
         if (totalTimePlayed() > 0) {
-            description.append(tr(", total played for %1").arg(Time::prettifyDuration(totalTimePlayed())));
+            if (APPLICATION->settings()->get("ShowGameTimeHours").toBool()) {
+                description.append(tr(", total played for %1 hours").arg(Time::prettifyDurationHours(totalTimePlayed())));
+            } else {
+                description.append(tr(", total played for %1").arg(Time::prettifyDuration(totalTimePlayed())));
+            }
         }
     }
     if(hasCrashed())
